@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#103a34">
+<meta name="description" content="WebGIS Kalurahan Sidomoyo — sistem informasi spasial interaktif untuk wilayah Kalurahan Sidomoyo, Kapanewon Godean, Kabupaten Sleman.">
+<title>WebGIS Sidomoyo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#edf3ef;
+  --card:#ffffff;
+  --card-2:#f8fbf9;
+  --line:#dbe7df;
+  --text:#1a2b25;
+  --muted:#64766e;
+  --brand:#103a34;
+  --brand-2:#1d5f53;
+  --brand-3:#2d8b78;
+  --shadow:0 18px 40px rgba(16,58,52,.10);
+  --radius:20px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%}
+body{font-family:"Plus Jakarta Sans",Inter,"Segoe UI",Arial,sans-serif;color:var(--text);background:linear-gradient(180deg,#f8fbf9 0%, #eef4f0 100%);}
+button,input,select{font-family:inherit}
+.app{width:100%;height:100vh;height:100dvh;display:grid;grid-template-columns:400px minmax(0,1fr);overflow:hidden;}
+.sidebar{min-width:0;height:100%;display:flex;flex-direction:column;background:rgba(255,255,255,.96);backdrop-filter:blur(14px);border-right:1px solid rgba(219,231,223,.98);overflow:hidden;}
+.sidebar-header{position:sticky;top:0;z-index:10;padding:18px 18px 12px;background:linear-gradient(180deg,rgba(255,255,255,.98) 0%, rgba(255,255,255,.93) 100%);border-bottom:1px solid #ecf2ee;}
+.brand{display:flex;align-items:center;gap:12px;}
+.brand-mark{width:56px;height:56px;flex:0 0 56px;border-radius:16px;padding:4px;background:#fff;border:1px solid #e4ece7;box-shadow:0 10px 24px rgba(16,58,52,.08);}
+.brand-mark img{width:100%;height:100%;object-fit:contain;display:block}
+.brand-copy{min-width:0}
+.eyebrow{margin:0 0 5px;color:var(--brand-2);font-size:10px;font-weight:800;letter-spacing:1.25px;text-transform:uppercase;}
+.brand h1{margin:0;font-size:24px;line-height:1.04;font-weight:800;letter-spacing:-.03em;}
+.brand p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.45;}
+.sidebar-scroll{flex:1;min-height:0;overflow-y:auto;padding:16px 18px 18px;scrollbar-gutter:stable;}
+.sidebar-scroll::-webkit-scrollbar{width:10px}
+.sidebar-scroll::-webkit-scrollbar-track{background:#eff5f1;border-radius:999px}
+.sidebar-scroll::-webkit-scrollbar-thumb{background:#c8d8cf;border-radius:999px;border:2px solid #eff5f1}
+.hero{margin-bottom:14px;}
+.hero h2{margin:0 0 10px;font-size:29px;line-height:1.04;letter-spacing:-.04em;}
+.hero p{margin:0;color:var(--muted);font-size:13px;line-height:1.65;}
+.panel{border:1px solid var(--line);background:var(--card);border-radius:18px;padding:14px;box-shadow:0 12px 26px rgba(16,58,52,.06);margin-bottom:14px;}
+.panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;}
+.panel-title{margin:0;font-size:14px;font-weight:800;color:var(--brand);}
+.panel-subtitle{margin:3px 0 0;color:var(--muted);font-size:11px;line-height:1.5;}
+.search-wrap{display:grid;gap:10px;}
+.search-label{font-size:12px;font-weight:700;color:#315248;}
+.search-field{position:relative;}
+.search-field input{width:100%;height:48px;border:1px solid #d8e5dc;border-radius:14px;background:#fcfefd;padding:0 122px 0 14px;color:#18352d;font-size:14px;font-weight:600;outline:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.7);}
+.search-field input:focus{border-color:#91b5a5;box-shadow:0 0 0 4px rgba(145,181,165,.16);}
+.search-btn{position:absolute;top:5px;right:5px;height:38px;border:none;border-radius:11px;background:linear-gradient(135deg,var(--brand),#165247);color:#fff;padding:0 14px;font-size:12px;font-weight:800;cursor:pointer;}
+.search-note{font-size:11px;line-height:1.55;color:var(--muted);}
+.search-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.ghost-btn{appearance:none;border:1px solid var(--line);background:#fff;color:var(--brand);min-height:38px;padding:0 12px;border-radius:11px;cursor:pointer;font:700 12px/1 "Plus Jakarta Sans",Inter,"Segoe UI",Arial,sans-serif;transition:transform .16s ease,box-shadow .16s ease,background .16s ease;}
+.ghost-btn:hover{transform:translateY(-1px);box-shadow:0 10px 20px rgba(16,58,52,.08)}
+.ghost-btn.primary{background:linear-gradient(135deg,var(--brand),#165247);border-color:var(--brand);color:#fff;}
+.search-status{margin-top:2px;min-height:17px;font-size:11px;color:#5e7067;}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.stat-card{border:1px solid var(--line);background:linear-gradient(180deg,#ffffff 0%, #f8fbf9 100%);border-radius:18px;padding:14px 14px 13px;box-shadow:0 10px 22px rgba(16,58,52,.05);}
+.stat-label{margin:0 0 8px;color:#597068;font-size:11px;font-weight:700;line-height:1.4;}
+.stat-value{margin:0;color:var(--brand);font-size:28px;line-height:1;font-weight:800;letter-spacing:-.04em;}
+.stat-note{margin:7px 0 0;color:#7a8a82;font-size:11px;line-height:1.45;}
+.tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.tool-btn{appearance:none;border:1px solid var(--line);background:#fff;color:var(--brand);min-height:42px;padding:0 12px;border-radius:12px;cursor:pointer;font:700 12px/1 "Plus Jakarta Sans",Inter,"Segoe UI",Arial,sans-serif;transition:transform .16s ease,box-shadow .16s ease,background .16s ease;}
+.tool-btn:hover{transform:translateY(-1px);box-shadow:0 10px 20px rgba(16,58,52,.08)}
+.tool-btn.primary{background:linear-gradient(135deg,var(--brand),#165247);border-color:var(--brand);color:#fff;}
+.tool-btn.active{background:linear-gradient(135deg,var(--brand),#165247);border-color:var(--brand);color:#fff;}
+.mini-list{display:grid;gap:10px;margin:0;padding:0;list-style:none;}
+.mini-item{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid #edf2ef;}
+.mini-item:last-child{border-bottom:none;padding-bottom:0;}
+.mini-item strong{display:block;font-size:12px;color:#1f362f;}
+.mini-item span{display:block;margin-top:3px;font-size:11px;color:var(--muted);line-height:1.45;}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:58px;height:28px;padding:0 10px;border-radius:999px;background:#eff7f2;color:var(--brand);font-size:12px;font-weight:800;}
+.copyright{padding-top:2px;color:#5f7269;font-size:11px;line-height:1.6;}
+.copyright strong{color:var(--brand);}
+.map-stage{padding:12px;min-width:0;min-height:0;}
+.map-frame{width:100%;height:100%;border-radius:24px;overflow:hidden;border:1px solid rgba(219,231,223,.98);background:#fff;box-shadow:var(--shadow);}
+.map-frame iframe{display:block;width:100%;height:100%;border:0;background:#fff;}
+.mobile-bar{display:none;}
+@media (max-width:1180px){.app{grid-template-columns:360px minmax(0,1fr);} .hero h2{font-size:25px}}
+@media (max-width:860px){
+ .app{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);}
+ .sidebar{display:none;position:fixed;z-index:1200;top:0;left:0;width:min(390px,92vw);height:100dvh;box-shadow:0 20px 44px rgba(16,58,52,.18);}
+ .sidebar.is-open{display:flex;}
+ .mobile-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-bottom:1px solid rgba(219,231,223,.98);background:rgba(255,255,255,.92);backdrop-filter:blur(14px);}
+ .mobile-brand{display:flex;align-items:center;gap:10px;min-width:0;}
+ .mobile-brand img{width:36px;height:36px;object-fit:contain;border-radius:10px;background:#fff;border:1px solid #e4ece7;padding:3px;}
+ .mobile-brand strong{display:block;font-size:15px;color:var(--brand);}
+ .mobile-brand span{display:block;color:var(--muted);font-size:10px;}
+ .mobile-menu-btn{appearance:none;border:1px solid var(--line);background:#fff;color:var(--brand);height:38px;padding:0 12px;border-radius:12px;font:700 11px/1 "Plus Jakarta Sans",Inter,"Segoe UI",Arial,sans-serif;}
+ .map-stage{padding:8px;}
+ .map-frame{border-radius:18px;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">
+        <div class="brand-mark"><img src="assets/lambang-kabupaten-sleman.webp" alt="Lambang Kabupaten Sleman"></div>
+        <div class="brand-copy">
+          <p class="eyebrow">Kalurahan Sidomoyo · Kapanewon Godean</p>
+          <h1>WebGIS Sidomoyo</h1>
+          <p>Sistem informasi spasial interaktif untuk mendukung penyajian data sumberdaya desa.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-scroll">
+      <section class="hero">
+        <h2>Peta digital yang lebih informatif, cepat, dan terstruktur.</h2>
+        <p>Jelajahi bidang tanah, fasilitas umum, penggunaan lahan, dan orthophoto Sidomoyo melalui antarmuka web yang rapi serta mudah digunakan.</p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h3 class="panel-title">Cari NIB bidang tanah</h3>
+            <p class="panel-subtitle">Kotak pencarian khusus untuk menemukan <strong>NIB Bidang Tanah</strong> secara cepat.</p>
+          </div>
+        </div>
+        <div class="search-wrap">
+          <label class="search-label" for="nibSearchInput">Masukkan NIB Bidang Tanah</label>
+          <div class="search-field">
+            <input id="nibSearchInput" type="text" placeholder="NIB terdiri dari 13 s.d 14 digit" autocomplete="off">
+            <button class="search-btn" id="nibSearchBtn" type="button">Cari NIB</button>
+          </div>
+          <div class="search-actions">
+            <button class="ghost-btn" id="openFiltersBtn" type="button">Filter & query</button>
+            <button class="ghost-btn" id="openLayersBtn" type="button">Layer & legenda</button>
+            <button class="ghost-btn" id="clearNibSearchBtn" type="button">Bersihkan hasil</button>
+          </div>
+          <div class="search-note">Pencarian difokuskan pada atribut <strong>NIB</strong> pada layer bidang tanah. Jika ditemukan, peta akan otomatis zoom ke lokasi bidang dan membuka popup atributnya.</div>
+          <div class="search-status" id="searchStatus">Siap digunakan.</div>
+        </div>
+      </section>
+
+      <section class="stats" aria-label="Ringkasan data">
+        <article class="stat-card">
+          <p class="stat-label">Jumlah bidang tanah</p>
+          <p class="stat-value">5,436</p>
+          <p class="stat-note">bidang terpetakan pada layer kepemilikan</p>
+        </article>
+        <article class="stat-card">
+          <p class="stat-label">Fasilitas umum</p>
+          <p class="stat-value">140</p>
+          <p class="stat-note">titik fasilitas yang terinventarisasi</p>
+        </article>
+        <article class="stat-card">
+          <p class="stat-label">Penggunaan lahan</p>
+          <p class="stat-value">118</p>
+          <p class="stat-note">objek penggunaan lahan pada basis data</p>
+        </article>
+        <article class="stat-card">
+          <p class="stat-label">Dusun</p>
+          <p class="stat-value">11</p>
+          <p class="stat-note">batas dusun tervalidasi di wilayah Sidomoyo</p>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h3 class="panel-title">Kontrol cepat peta</h3>
+            <p class="panel-subtitle">Akses filter, layer, serta pergantian basemap dari panel ini.</p>
+          </div>
+        </div>
+        <div class="tool-grid">
+          <button class="tool-btn primary" id="filterPanelBtn" type="button">Buka filter</button>
+          <button class="tool-btn" id="layerPanelBtn" type="button">Buka layer</button>
+          <button class="tool-btn active" id="streetBtn" type="button">Peta jalan</button>
+          <button class="tool-btn" id="satelliteBtn" type="button">Citra satelit</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h3 class="panel-title">Gambaran awal data</h3>
+            <p class="panel-subtitle">Beberapa informasi ringkas untuk pembacaan cepat sebelum melakukan query lebih lanjut.</p>
+          </div>
+        </div>
+        <ul class="mini-list">
+          <li class="mini-item"><div><strong>Hak Milik</strong><span>Jenis hak yang paling dominan pada layer bidang tanah.</span></div><span class="badge">4,659</span></li>
+          <li class="mini-item"><div><strong>Jaringan jalan</strong><span>Segmen jalan pada layer perhubungan yang dapat diaktifkan di peta.</span></div><span class="badge">148</span></li>
+          <li class="mini-item"><div><strong>Tutupan lahan</strong><span>Kategori tutupan lahan yang tersedia sebagai ringkasan penutup permukaan.</span></div><span class="badge">4</span></li>
+          <li class="mini-item"><div><strong>Objek sungai</strong><span>Fitur perairan yang telah termuat pada WebGIS Sidomoyo.</span></div><span class="badge">8</span></li>
+        </ul>
+      </section>
+
+      <div class="copyright">
+        <strong>© 2026 Proyek Rekayasa Geodesi dan Geoinformatika, Teknik Geodesi Universitas Gadjah Mada</strong><br>
+        WebGIS Kalurahan Sidomoyo · Kapanewon Godean · Kabupaten Sleman
+      </div>
+    </div>
+  </aside>
+
+  <section class="map-stage">
+    <div class="mobile-bar">
+      <div class="mobile-brand">
+        <img src="assets/lambang-kabupaten-sleman.webp" alt="Lambang Kabupaten Sleman">
+        <div><strong>WebGIS Sidomoyo</strong><span>Kalurahan Sidomoyo · Kabupaten Sleman</span></div>
+      </div>
+      <button class="mobile-menu-btn" id="mobileMenuBtn">Panel informasi</button>
+    </div>
+    <div class="map-frame">
+      <iframe id="mapFrame" src="map.html" title="WebGIS Kalurahan Sidomoyo" allow="geolocation" loading="eager"></iframe>
+    </div>
+  </section>
+</div>
+<script>
+(function(){
+  const mapFrame = document.getElementById('mapFrame');
+  const sidebar = document.getElementById('sidebar');
+  const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+  const searchInput = document.getElementById('nibSearchInput');
+  const searchBtn = document.getElementById('nibSearchBtn');
+  const clearSearchBtn = document.getElementById('clearNibSearchBtn');
+  const searchStatus = document.getElementById('searchStatus');
+  const openFiltersBtn = document.getElementById('openFiltersBtn');
+  const openLayersBtn = document.getElementById('openLayersBtn');
+  const filterPanelBtn = document.getElementById('filterPanelBtn');
+  const layerPanelBtn = document.getElementById('layerPanelBtn');
+  const streetBtn = document.getElementById('streetBtn');
+  const satelliteBtn = document.getElementById('satelliteBtn');
+
+  function sendMapMessage(payload) {
+    if (mapFrame && mapFrame.contentWindow) {
+      mapFrame.contentWindow.postMessage(payload, '*');
+    }
+  }
+
+  function setBase(base) {
+    sendMapMessage({ type: 'setBasemap', base: base });
+    streetBtn.classList.toggle('active', base === 'osm');
+    satelliteBtn.classList.toggle('active', base === 'sat');
+  }
+
+  function runNibSearch() {
+    const value = (searchInput.value || '').trim();
+    if (!value) {
+      searchStatus.textContent = 'Masukkan NIB terlebih dahulu.';
+      searchInput.focus();
+      return;
+    }
+    searchStatus.textContent = 'Mencari NIB ' + value + ' ...';
+    sendMapMessage({ type: 'searchNIB', value: value });
+  }
+
+  function clearNibSearch() {
+    searchInput.value = '';
+    searchStatus.textContent = 'Pencarian dibersihkan.';
+    sendMapMessage({ type: 'clearNibSearch' });
+  }
+
+  if (mobileMenuBtn) {
+    mobileMenuBtn.addEventListener('click', function() {
+      sidebar.classList.toggle('is-open');
+      this.textContent = sidebar.classList.contains('is-open') ? 'Tutup panel' : 'Panel informasi';
+    });
+  }
+
+  searchBtn.addEventListener('click', runNibSearch);
+  clearSearchBtn.addEventListener('click', clearNibSearch);
+  searchInput.addEventListener('keydown', function(ev) { if (ev.key === 'Enter') runNibSearch(); });
+  openFiltersBtn.addEventListener('click', function() { sendMapMessage({ type: 'toggleFilterPanel' }); });
+  openLayersBtn.addEventListener('click', function() { sendMapMessage({ type: 'toggleLayerPanel' }); });
+  filterPanelBtn.addEventListener('click', function() { sendMapMessage({ type: 'toggleFilterPanel' }); });
+  layerPanelBtn.addEventListener('click', function() { sendMapMessage({ type: 'toggleLayerPanel' }); });
+  streetBtn.addEventListener('click', function() { setBase('osm'); });
+  satelliteBtn.addEventListener('click', function() { setBase('sat'); });
+
+  window.addEventListener('message', function(event) {
+    const data = event.data || {};
+    if (data.type === 'nibSearchResult') {
+      if (data.found) {
+        searchStatus.textContent = 'NIB ditemukan: ' + data.value + '. Peta difokuskan ke bidang terkait.';
+      } else {
+        searchStatus.textContent = 'NIB tidak ditemukan. Periksa kembali angka yang dimasukkan.';
+      }
+    } else if (data.type === 'mapReady') {
+      searchStatus.textContent = 'Peta siap digunakan. Anda dapat mulai mencari NIB.';
+    } else if (data.type === 'basemapChanged') {
+      streetBtn.classList.toggle('active', data.base === 'osm');
+      satelliteBtn.classList.toggle('active', data.base === 'sat');
+    }
+  });
+})();
+</script>
+</body>
+</html>
