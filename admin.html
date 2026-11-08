@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Admin WebGIS Sidomoyo</title>
+<link rel="stylesheet" href="css/leaflet.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.css">
+<style>
+:root{--brand:#103a34;--brand2:#1d5f53;--line:#dbe7df;--muted:#64766e;--danger:#b3261e;--warn:#b26a00}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font-family:"Plus Jakarta Sans",Inter,"Segoe UI",Arial,sans-serif;color:#1a2b25;font-size:14px}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 340px;grid-template-rows:auto 1fr;height:100%}
+header{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 12px;background:var(--brand);color:#fff}
+header h1{font-size:15px;margin:0 8px 0 0}
+header input{height:32px;border-radius:8px;border:0;padding:0 10px;width:200px}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--brand);height:32px;padding:0 12px;font-weight:700}
+button.primary{background:var(--brand2);color:#fff;border-color:var(--brand2)}
+button.danger{color:var(--danger);border-color:#e6b8b5}
+button:disabled{opacity:.45;cursor:not-allowed}
+header .sp{flex:1}
+#map{height:100%;min-height:0}
+aside{border-left:1px solid var(--line);padding:14px;overflow:auto;background:#fff}
+aside h2{font-size:14px;margin:0 0 4px;color:var(--brand)}
+.hint{color:var(--muted);font-size:12px;line-height:1.5;margin:0 0 10px}
+label{display:block;font-size:12px;font-weight:700;margin:10px 0 3px;color:#315248}
+aside input{width:100%;height:34px;border:1px solid #cfdcd4;border-radius:8px;padding:0 9px;font:inherit}
+aside input:disabled{background:#f1f5f2}
+.row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+#status{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#1a2b25;color:#fff;padding:8px 14px;border-radius:10px;font-size:13px;max-width:90vw;display:none;z-index:2000}
+#status.err{background:var(--danger)}
+#login{position:fixed;inset:0;background:rgba(16,58,52,.94);display:flex;align-items:center;justify-content:center;z-index:3000}
+#login form{background:#fff;padding:24px;border-radius:16px;width:min(360px,92vw)}
+#login h2{margin:0 0 4px;color:var(--brand)}
+#loginMsg{color:var(--danger);font-size:12px;min-height:16px;margin-top:8px}
+.badge{background:#ffffff22;border-radius:999px;padding:3px 10px;font-size:12px}
+@media(max-width:860px){.app{grid-template-columns:1fr;grid-template-rows:auto 55% 1fr}aside{border-left:0;border-top:1px solid var(--line)}}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <form id="loginForm">
+    <h2>Admin WebGIS Sidomoyo</h2>
+    <p class="hint">Khusus pengelola yang terdaftar. Masuk untuk mengubah data bidang tanah.</p>
+    <label for="email">Email</label><input id="email" type="email" autocomplete="username" required>
+    <label for="pass">Kata sandi</label><input id="pass" type="password" autocomplete="current-password" required>
+    <div class="row"><button class="primary" type="submit" style="width:100%">Masuk</button></div>
+    <div id="loginMsg"></div>
+  </form>
+</div>
+
+<div class="app">
+  <header>
+    <h1>Admin · Bidang Tanah</h1>
+    <input id="nibQ" placeholder="Cari NIB lalu Enter" inputmode="numeric">
+    <label style="display:flex;align-items:center;gap:5px;margin:0;color:#fff;font-weight:600"><input type="checkbox" id="snap" style="width:auto;height:auto"> Snap</label>
+    <span class="badge" id="count">0 bidang</span>
+    <span class="badge" id="dirtyBadge" style="display:none"></span>
+    <span class="sp"></span>
+    <button id="saveAll" class="primary" disabled>Simpan semua perubahan</button>
+    <button id="reload">Muat ulang</button>
+    <span id="who" class="badge"></span>
+    <button id="logout">Keluar</button>
+  </header>
+
+  <div id="map"></div>
+
+  <aside>
+    <h2 id="panelTitle">Pilih bidang</h2>
+    <p class="hint" id="panelHint">Klik bidang pada peta untuk mengubah atribut, mengedit titik sudut, atau menggesernya. Gunakan toolbar kiri-atas peta untuk menggambar bidang baru. Perubahan baru masuk ke database setelah menekan <strong>Simpan</strong>. Centang <em>Snap</em> di atas agar titik menempel ke batas bidang tetangga (dapat terasa berat di zoom jauh).</p>
+    <form id="form" style="display:none" autocomplete="off">
+      <div class="hint">ID basis data: <strong id="f_id">-</strong></div>
+      <label for="f_NIB">NIB (13–14 digit)</label><input id="f_NIB" inputmode="numeric">
+      <label for="f_NOMOR">Nomor</label><input id="f_NOMOR">
+      <label for="f_NAMA">Nama pemegang</label><input id="f_NAMA">
+      <label for="f_TIPE_HAK">Tipe hak</label><input id="f_TIPE_HAK" list="dl_tipe">
+      <label for="f_TAHUN">Tahun</label><input id="f_TAHUN" inputmode="numeric" maxlength="4">
+      <label for="f_KODE">Kode</label><input id="f_KODE">
+      <label for="f_DUSUN">Dusun</label><input id="f_DUSUN" list="dl_dusun">
+      <label for="f_LUAS_M2">Luas (m²) — kosongkan agar dihitung otomatis dari bentuk</label><input id="f_LUAS_M2" inputmode="decimal">
+      <label for="f_AKURASI">Akurasi</label><input id="f_AKURASI" inputmode="decimal">
+      <datalist id="dl_tipe"></datalist><datalist id="dl_dusun"></datalist>
+      <div class="row" style="margin-top:12px">
+        <button type="button" id="btnEdit">Edit titik sudut</button>
+        <button type="button" id="btnDrag">Geser bidang</button>
+      </div>
+      <div class="row">
+        <button type="button" id="btnSave" class="primary">Simpan</button>
+        <button type="button" id="btnRevert">Batalkan perubahan</button>
+        <button type="button" id="btnDelete" class="danger">Hapus bidang</button>
+      </div>
+    </form>
+  </aside>
+</div>
+<div id="status"></div>
+
+<script src="js/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ================= KONFIGURASI (ISI DUA BARIS INI) ================= */
+  var SUPABASE_URL  = 'https://hzcryaeyoeqgaihqeiyc.supabase.co';
+  var SUPABASE_ANON = sb_publishable_tlp6IPMGfvb8Kl-6oyLPaQ_aUfm2-mE';   // BUKAN service_role!
+  /* =================================================================== */
+
+  var FIELDS = ['NIB','NOMOR','NAMA','TIPE_HAK','TAHUN','KODE','DUSUN','LUAS_M2','AKURASI'];
+  var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  var $ = function (id) { return document.getElementById(id); };
+
+  var STYLE = {
+    normal:   {color:'#d4a800', weight:2, fillColor:'#ffd84d', fillOpacity:0.06},
+    dirty:    {color:'#d62828', weight:3, dashArray:'6 4', fillColor:'#ff6b6b', fillOpacity:0.15},
+    selected: {color:'#00897b', weight:4, fillColor:'#26a69a', fillOpacity:0.25}
+  };
+
+  /* ---------- peta ---------- */
+  var map = L.map('map', {maxZoom: 21, minZoom: 14, preferCanvas: true})
+    .fitBounds([[-7.7681, 110.2965], [-7.7492, 110.3284]]);
+  var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 21, maxNativeZoom: 19, attribution: '&copy; OpenStreetMap'});
+  var sat = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom: 21, maxNativeZoom: 19, attribution: 'Esri World Imagery'});
+  var ortho = L.tileLayer('orthophoto_tiles/{z}/{x}/{y}.png', {minZoom: 14, maxZoom: 21, maxNativeZoom: 19, attribution: 'Orthophoto Sidomoyo'});
+  sat.addTo(map); ortho.addTo(map);
+  L.control.layers({'Satelit': sat, 'OpenStreetMap': osm}, {'Orthophoto': ortho}, {collapsed: true}).addTo(map);
+
+  map.pm.addControls({
+    position: 'topleft',
+    drawMarker: false, drawCircleMarker: false, drawPolyline: false, drawCircle: false, drawText: false,
+    drawRectangle: true, drawPolygon: true,
+    editMode: false, dragMode: false, cutPolygon: false, rotateMode: false, removalMode: false
+  });
+  // Edit/geser SENGAJA tidak memakai mode global Geoman (akan mengaktifkan ribuan bidang sekaligus
+  // dan membuat browser berat); keduanya hanya berlaku untuk bidang yang dipilih (tombol di panel kanan).
+  map.pm.setGlobalOptions({snappable: false, snapDistance: 12, allowSelfIntersection: false});
+
+  var group = L.featureGroup().addTo(map);
+  var selected = null;
+  var dirty = new Set();
+
+  /* ---------- util ---------- */
+  var statusTimer;
+  function say(msg, err) {
+    var el = $('status'); el.textContent = msg; el.className = err ? 'err' : ''; el.style.display = 'block';
+    clearTimeout(statusTimer); statusTimer = setTimeout(function () { el.style.display = 'none'; }, err ? 7000 : 3500);
+  }
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  function roundCoords(c) { return typeof c[0] === 'number' ? [+c[0].toFixed(7), +c[1].toFixed(7)] : c.map(roundCoords); }
+  function geomOf(layer) {
+    var g = layer.toGeoJSON().geometry; g.coordinates = roundCoords(g.coordinates); return g;
+  }
+  function styleOf(layer) { return layer === selected ? STYLE.selected : dirty.has(layer) ? STYLE.dirty : STYLE.normal; }
+  function restyle(layer) { layer.setStyle(styleOf(layer)); }
+  function refreshBadges() {
+    $('count').textContent = group.getLayers().length.toLocaleString('id-ID') + ' bidang';
+    var n = dirty.size, b = $('dirtyBadge');
+    b.style.display = n ? '' : 'none'; b.textContent = n + ' belum disimpan';
+    $('saveAll').disabled = n === 0;
+  }
+  function markDirty(layer, geomChanged) {
+    if (geomChanged) {
+      layer._geomDirty = true;
+      layer.feature.properties.LUAS_M2 = null;               // dihitung ulang oleh server
+      if (layer === selected) $('f_LUAS_M2').value = '';
+    }
+    dirty.add(layer); restyle(layer); refreshBadges();
+  }
+  window.addEventListener('beforeunload', function (e) { if (dirty.size) { e.preventDefault(); e.returnValue = ''; } });
+
+  /* ---------- edit titik sudut / geser: hanya bidang terpilih ---------- */
+  function syncEditButtons() {
+    $('btnEdit').classList.toggle('primary', !!(selected && selected._pmEdit));
+    $('btnDrag').classList.toggle('primary', !!(selected && selected._pmDrag));
+    $('btnEdit').textContent = selected && selected._pmEdit ? 'Selesai edit titik' : 'Edit titik sudut';
+    $('btnDrag').textContent = selected && selected._pmDrag ? 'Selesai geser' : 'Geser bidang';
+  }
+  function stopEditing(layer) {
+    if (!layer) return;
+    try { layer.pm.disable(); layer.pm.disableLayerDrag(); } catch (e) {}
+    layer._pmEdit = false; layer._pmDrag = false;
+  }
+  $('btnEdit').addEventListener('click', function () {
+    if (!selected) return;
+    if (selected._pmEdit) { stopEditing(selected); }
+    else {
+      stopEditing(selected);
+      selected.pm.enable({allowSelfIntersection: false, snappable: $('snap').checked, snapDistance: 12});
+      selected._pmEdit = true;
+    }
+    syncEditButtons();
+  });
+  $('btnDrag').addEventListener('click', function () {
+    if (!selected) return;
+    if (selected._pmDrag) { stopEditing(selected); }
+    else { stopEditing(selected); selected.pm.enableLayerDrag(); selected._pmDrag = true; }
+    syncEditButtons();
+  });
+  $('snap').addEventListener('change', function () {
+    map.pm.setGlobalOptions({snappable: this.checked});
+    if (selected && selected._pmEdit) { stopEditing(selected); selected.pm.enable({allowSelfIntersection: false, snappable: this.checked, snapDistance: 12}); selected._pmEdit = true; }
+  });
+
+  /* ---------- layer & seleksi ---------- */
+  function wire(layer) {
+    layer.on('click', function (e) { L.DomEvent.stopPropagation(e); select(layer); });
+    layer.on('pm:edit',    function () { markDirty(layer, true); });
+    layer.on('pm:dragend', function () { markDirty(layer, true); });
+  }
+
+  function fillDatalists() {
+    var tipe = new Set(), dusun = new Set();
+    group.eachLayer(function (l) {
+      var p = l.feature.properties;
+      if (p.TIPE_HAK) tipe.add(p.TIPE_HAK); if (p.DUSUN) dusun.add(p.DUSUN);
+    });
+    [['dl_tipe', tipe], ['dl_dusun', dusun]].forEach(function (x) {
+      var dl = $(x[0]); dl.textContent = '';
+      Array.from(x[1]).sort().forEach(function (v) { var o = document.createElement('option'); o.value = v; dl.appendChild(o); });
+    });
+  }
+
+  function select(layer) {
+    var prev = selected;
+    if (prev && prev !== layer) stopEditing(prev);
+    selected = layer;
+    if (prev) restyle(prev);
+    syncEditButtons();
+    if (!layer) { $('form').style.display = 'none'; $('panelTitle').textContent = 'Pilih bidang'; $('panelHint').style.display = ''; return; }
+    restyle(layer); layer.bringToFront();
+    var p = layer.feature.properties;
+    $('panelHint').style.display = 'none'; $('form').style.display = '';
+    $('panelTitle').textContent = p.id ? 'Bidang #' + p.id : 'Bidang baru (belum disimpan)';
+    $('f_id').textContent = p.id || '(baru)';
+    FIELDS.forEach(function (k) { $('f_' + k).value = p[k] == null ? '' : p[k]; });
+    $('btnRevert').textContent = p.id ? 'Batalkan perubahan' : 'Batalkan penambahan';
+    $('btnDelete').disabled = !p.id;
+  }
+
+  // form -> properti (tulis langsung ke layer; tersimpan ke DB saat tombol Simpan)
+  FIELDS.forEach(function (k) {
+    $('f_' + k).addEventListener('input', function () {
+      if (!selected) return;
+      var v = this.value.trim();
+      selected.feature.properties[k] = v === '' ? null : v;
+      dirty.add(selected); restyle(selected); refreshBadges();
+    });
+  });
+
+  /* ---------- muat data ---------- */
+  async function loadData() {
+    if (dirty.size && !confirm('Ada perubahan yang belum disimpan. Muat ulang dan buang perubahan itu?')) return;
+    say('Memuat data…');
+    var res = await sb.rpc('bidang_geojson');
+    if (res.error) { say('Gagal memuat: ' + res.error.message, true); return; }
+    group.clearLayers(); dirty.clear(); selected = null; select(null);
+    L.geoJSON(res.data, {
+      style: function () { return STYLE.normal; },
+      onEachFeature: function (f, layer) {
+        layer._origProps = clone(f.properties); layer._origGeom = clone(f.geometry);
+        wire(layer); group.addLayer(layer);
+      }
+    });
+    fillDatalists(); refreshBadges();
+    say('Dimuat ' + group.getLayers().length + ' bidang.');
+  }
+
+  /* ---------- gambar bidang baru ---------- */
+  map.on('pm:create', function (e) {
+    var layer = e.layer;
+    if (layer.pm && layer.pm.disable) layer.pm.disable();
+    group.addLayer(layer);                                   // hanya polygon/rectangle yang aktif
+    layer.feature = {type: 'Feature', properties: {id: null, AKURASI: 0}};
+    layer._origGeom = null; layer._geomDirty = true;
+    wire(layer); dirty.add(layer); select(layer); refreshBadges();
+    say('Bidang baru digambar. Lengkapi atribut lalu klik Simpan.');
+  });
+
+  /* ---------- simpan / hapus / batal ---------- */
+  function validate(layer) {
+    var p = layer.feature.properties;
+    if (p.NIB && !/^[0-9]{13,14}$/.test(p.NIB)) return 'NIB harus 13–14 digit angka.';
+    if (p.TAHUN && !/^[0-9]{1,4}$/.test(p.TAHUN)) return 'Tahun harus berupa angka (maks. 4 digit).';
+    if (p.LUAS_M2 != null && isNaN(Number(p.LUAS_M2))) return 'Luas harus berupa angka.';
+    if (p.AKURASI != null && isNaN(Number(p.AKURASI))) return 'Akurasi harus berupa angka.';
+    return null;
+  }
+  function nibDuplicate(layer) {
+    var nib = layer.feature.properties.NIB; if (!nib) return false;
+    var dup = false;
+    group.eachLayer(function (l) { if (l !== layer && l.feature.properties.NIB === nib) dup = true; });
+    return dup;
+  }
+
+  async function saveLayer(layer, skipDupAsk) {
+    var err = validate(layer);
+    if (err) { say(err, true); return false; }
+    if (!skipDupAsk && nibDuplicate(layer) && !confirm('NIB ini sudah dipakai bidang lain. Tetap simpan?')) return false;
+    var p = layer.feature.properties;
+    var feat = {type: 'Feature', properties: clone(p), geometry: geomOf(layer)};
+    var r = await sb.rpc('simpan_bidang', {feat: feat});
+    if (r.error) { say('Gagal menyimpan: ' + r.error.message, true); return false; }
+    p.id = r.data;
+    var lu = await sb.from('bidang_tanah').select('luas_m2').eq('id', p.id).single();   // ambil luas hasil hitung server
+    if (!lu.error) p.LUAS_M2 = lu.data.luas_m2;
+    layer._origProps = clone(p); layer._origGeom = clone(feat.geometry); layer._geomDirty = false;
+    stopEditing(layer); dirty.delete(layer); restyle(layer); refreshBadges();
+    if (layer === selected) select(layer);
+    return true;
+  }
+
+  $('btnSave').addEventListener('click', async function () {
+    if (!selected) return;
+    this.disabled = true;
+    if (await saveLayer(selected)) say('Tersimpan ke database.');
+    this.disabled = false;
+  });
+
+  $('saveAll').addEventListener('click', async function () {
+    this.disabled = true;
+    var ok = 0, fail = 0;
+    for (var layer of Array.from(dirty)) { (await saveLayer(layer, true)) ? ok++ : fail++; }
+    say(ok + ' tersimpan' + (fail ? ', ' + fail + ' gagal' : '.'), fail > 0);
+    refreshBadges();
+  });
+
+  $('btnRevert').addEventListener('click', function () {
+    var layer = selected; if (!layer) return;
+    if (!layer.feature.properties.id) { stopEditing(layer); dirty.delete(layer); group.removeLayer(layer); select(null); refreshBadges(); return; }
+    stopEditing(layer);
+    var g = layer._origGeom;
+    layer.setLatLngs(L.GeoJSON.coordsToLatLngs(g.coordinates, g.type === 'MultiPolygon' ? 2 : 1));
+    layer.feature.properties = clone(layer._origProps); layer._geomDirty = false;
+    dirty.delete(layer); restyle(layer); select(layer); refreshBadges();
+  });
+
+  $('btnDelete').addEventListener('click', async function () {
+    var layer = selected; if (!layer) return;
+    var p = layer.feature.properties; if (!p.id) return;
+    if (!confirm('Hapus bidang #' + p.id + (p.NIB ? ' (NIB ' + p.NIB + ')' : '') + ' dari database? Riwayat tetap tercatat di audit log.')) return;
+    var r = await sb.rpc('hapus_bidang', {bid: p.id});
+    if (r.error) { say('Gagal menghapus: ' + r.error.message, true); return; }
+    stopEditing(layer); dirty.delete(layer); group.removeLayer(layer); select(null); refreshBadges(); say('Bidang dihapus.');
+  });
+
+  $('form').addEventListener('submit', function (e) { e.preventDefault(); });
+
+  /* ---------- cari NIB ---------- */
+  $('nibQ').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    var q = this.value.trim(); if (!q) return;
+    var hit = null;
+    group.eachLayer(function (l) { if (!hit && String(l.feature.properties.NIB || '').indexOf(q) !== -1) hit = l; });
+    if (!hit) { say('NIB tidak ditemukan.', true); return; }
+    map.fitBounds(hit.getBounds().pad(0.8), {maxZoom: 20}); select(hit);
+  });
+
+  map.on('click', function () { select(null); });
+  $('reload').addEventListener('click', loadData);
+
+  /* ---------- autentikasi ---------- */
+  async function enter(session) {
+    var chk = await sb.rpc('is_admin');
+    if (chk.error || chk.data !== true) {
+      await sb.auth.signOut();
+      $('loginMsg').textContent = 'Akun ini bukan admin.'; $('login').style.display = 'flex'; return;
+    }
+    $('who').textContent = session.user.email;
+    $('login').style.display = 'none';
+    map.invalidateSize();
+    loadData();
+  }
+
+  $('loginForm').addEventListener('submit', async function (e) {
+    e.preventDefault(); $('loginMsg').textContent = '';
+    var r = await sb.auth.signInWithPassword({email: $('email').value.trim(), password: $('pass').value});
+    if (r.error) { $('loginMsg').textContent = 'Email atau kata sandi salah.'; return; }
+    $('pass').value = ''; enter(r.data.session);
+  });
+
+  $('logout').addEventListener('click', async function () {
+    if (dirty.size && !confirm('Ada perubahan belum disimpan. Tetap keluar?')) return;
+    dirty.clear(); await sb.auth.signOut(); location.reload();
+  });
+
+  sb.auth.getSession().then(function (r) { if (r.data && r.data.session) enter(r.data.session); });
+})();
+</script>
+</body>
+</html>

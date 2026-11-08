@@ -1,0 +1,41 @@
+name: Sinkronkan data dari Supabase
+
+# Fungsi ganda:
+#  1) menyalin hasil editing di database -> data/BidangTanah_5.js (dipakai peta publik)
+#  2) memanggil database secara berkala sehingga proyek Supabase gratis tidak ter-pause
+on:
+  schedule:
+    - cron: "0 */6 * * *"      # tiap 6 jam (UTC)
+  workflow_dispatch:            # tombol manual: tab Actions > Run workflow
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-data
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ekspor Bidang Tanah dari Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: python3 tools/export_from_supabase.py data/BidangTanah_5.js
+
+      - name: Commit jika ada perubahan
+        run: |
+          if git diff --quiet -- data/BidangTanah_5.js; then
+            echo "Tidak ada perubahan data."
+            exit 0
+          fi
+          git config user.name  "webgis-sync[bot]"
+          git config user.email "webgis-sync@users.noreply.github.com"
+          git add data/BidangTanah_5.js
+          git commit -m "Sinkronisasi data Bidang Tanah dari database ($(date -u +'%Y-%m-%d %H:%M UTC'))"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
